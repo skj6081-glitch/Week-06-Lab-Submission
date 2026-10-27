@@ -1,0 +1,19 @@
+# Task 1: Link State by Hand
+- Tie-breaking: When costs tie, I picked the next-hop node with the first lexicographical order. Real OSPF routers typically use Equal-Cost Multi-Path (ECMP) to load-balance traffic, or break ties using the lowest router ID.
+- u to w: The next hop is 'x', not 'w'. OSPF routes based on the lowest cumulative cost. Direct u-w costs 5, while the longer path u-x-y-w has a total cost of only 3.
+- After u-x fails: Destinations w, x, y, and z all changed their next hop from 'x' to 'v'. Destination 'v' did not change its hop.
+
+# Task 2: Break a Real Network
+- A3 (Ocean crossing): The hop where latency jumps from ~2ms to over 100ms indicates the submarine cable crossing the Pacific Ocean, often routing from Seoul to LA or Seattle nodes.
+- Reconvergence & Intervals: Using classmate data (since Docker was unavailable), reconvergence took exactly 40 seconds. This perfectly matches the standard OSPF 'dead interval' config (4 * 10s hello interval), as routers wait this long to declare a neighbor dead.
+- Up vs. Down: A link going down takes 40s to be noticed due to waiting for the dead timer. Coming back up is near-instant because a router immediately receives a Hello packet and processes the new adjacency.
+- Cost change vs Failure: Changing cost is much faster than waiting for a failure because a cost change triggers an immediate LSA flooding to all neighbors, whereas failure requires a timeout before any LSA is generated.
+- Path B Weakening: I did not observe the failure directly. Reading a classmate's numbers weakened the hands-on understanding of just how long 40 seconds feels when a network is black-holed.
+
+# Task 3: Reconverge Without Recomputing
+- Memory vs CPU: I kept a cache of `distances` (shortest cost to each node) and `parents` (the immediate predecessor node used to get there) between events. This costs O(N) in memory but saves massive CPU cycles.
+- Handled vs Unhandled cases: 
+  1. I handle unused links going down (ignored, no SPF). 
+  2. I handle unused links going up/getting cheaper (ignored unless `dist[a] + cost < dist[b]`). 
+  3. I still force a full SPF if a link currently in use (parent == neighbor) goes down or changes cost.
+- R5 (Wall time vs Router time): My version adds logic checks in Python dictionary overhead, making it slower in pure "wall time" than baseline C-optimized loops. However, it is fundamentally right for a router: routers have specialized ASICs/CPUs that are bottlenecked by graph-traversal computations (SPF), not basic memory lookups. Avoiding 80% of O(E log V) Dijkstra runs saves a router from melting under load.
